@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D2C Brand Performance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#161c26; --panel2:#1c2330; --border:#262e3d;
+    --text:#e8edf5; --muted:#8b95a7; --accent:#6366f1; --accent2:#22d3ee;
+    --green:#34d399; --amber:#fbbf24; --pink:#f472b6; --purple:#a78bfa; --red:#fb7185;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Segoe UI',Roboto,-apple-system,BlinkMacSystemFont,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 10% -10%, #1b2236 0%, var(--bg) 55%) ,var(--bg);
+    color:var(--text); padding:22px 28px 40px; min-height:100vh;
+  }
+  header{
+    display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px;
+    margin-bottom:22px; border-bottom:1px solid var(--border); padding-bottom:16px;
+  }
+  header h1{font-size:1.55rem; font-weight:700; letter-spacing:.2px;}
+  header h1 span{color:var(--accent2);}
+  header p{color:var(--muted); font-size:.85rem; margin-top:4px;}
+  .meta-pill{
+    background:var(--panel2); border:1px solid var(--border); padding:7px 14px; border-radius:999px;
+    font-size:.78rem; color:var(--muted);
+  }
+  .kpi-grid{
+    display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:22px;
+  }
+  .kpi-card{
+    background:linear-gradient(155deg,var(--panel) 0%, var(--panel2) 100%);
+    border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px;
+    position:relative; overflow:hidden;
+  }
+  .kpi-card::before{
+    content:""; position:absolute; right:-20px; top:-20px; width:80px; height:80px;
+    border-radius:50%; background:var(--accent-color,var(--accent)); opacity:.12;
+  }
+  .kpi-label{font-size:.74rem; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; font-weight:600;}
+  .kpi-value{font-size:1.55rem; font-weight:800; margin-top:8px; letter-spacing:.3px;}
+  .kpi-sub{font-size:.72rem; color:var(--muted); margin-top:6px;}
+  .grid{
+    display:grid; grid-template-columns:repeat(12,1fr); gap:16px;
+  }
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px 18px; display:flex; flex-direction:column;
+  }
+  .card h3{font-size:.92rem; font-weight:700; margin-bottom:2px;}
+  .card .card-sub{font-size:.72rem; color:var(--muted); margin-bottom:10px;}
+  .chart-wrap{position:relative; flex:1; min-height:230px;}
+  .c-span-4{grid-column:span 4;}
+  .c-span-6{grid-column:span 6;}
+  .c-span-8{grid-column:span 8;}
+  .c-span-12{grid-column:span 12;}
+  table{width:100%; border-collapse:collapse; font-size:.82rem;}
+  thead th{
+    text-align:left; color:var(--muted); font-weight:600; font-size:.72rem; text-transform:uppercase;
+    letter-spacing:.5px; padding:8px 10px; border-bottom:1px solid var(--border);
+  }
+  tbody td{padding:9px 10px; border-bottom:1px solid rgba(255,255,255,0.04);}
+  tbody tr:hover{background:rgba(255,255,255,0.03);}
+  .rank{
+    display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px;
+    border-radius:6px; background:var(--accent); color:#fff; font-size:.72rem; font-weight:700;
+  }
+  .badge{
+    display:inline-block; padding:2px 9px; border-radius:999px; font-size:.68rem; font-weight:700;
+    background:rgba(52,211,153,0.15); color:var(--green);
+  }
+  footer{margin-top:24px; text-align:center; color:var(--muted); font-size:.74rem;}
+  @media (max-width:1100px){
+    .kpi-grid{grid-template-columns:repeat(2,1fr);}
+    .c-span-4,.c-span-6,.c-span-8{grid-column:span 12;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>D2C Brand <span>Performance Dashboard</span></h1>
+    <p>Channel, product &amp; customer performance overview — auto-generated from sales workbook</p>
+  </div>
+  <div class="meta-pill" id="dateRangePill">Loading period…</div>
+</header>
+
+<section class="kpi-grid" id="kpiGrid"></section>
+
+<section class="grid">
+  <div class="card c-span-6">
+    <h3>Revenue by Channel</h3>
+    <div class="card-sub">Total revenue contribution per sales channel</div>
+    <div class="chart-wrap"><canvas id="chRevChannel"></canvas></div>
+  </div>
+
+  <div class="card c-span-6">
+    <h3>Orders by Channel</h3>
+    <div class="card-sub">Order volume distribution per channel</div>
+    <div class="chart-wrap"><canvas id="chOrdersChannel"></canvas></div>
+  </div>
+
+  <div class="card c-span-8">
+    <h3>Monthly Sales Trend</h3>
+    <div class="card-sub">Revenue and order count over time</div>
+    <div class="chart-wrap"><canvas id="chTrend"></canvas></div>
+  </div>
+
+  <div class="card c-span-4">
+    <h3>Channel Contribution</h3>
+    <div class="card-sub">Share of total revenue</div>
+    <div class="chart-wrap"><canvas id="chChannelShare"></canvas></div>
+  </div>
+
+  <div class="card c-span-6">
+    <h3>Top 10 Products</h3>
+    <div class="card-sub">Ranked by revenue generated</div>
+    <div class="chart-wrap"><canvas id="chTopProducts"></canvas></div>
+  </div>
+
+  <div class="card c-span-6">
+    <h3>Revenue by Category</h3>
+    <div class="card-sub">Category-wise revenue breakdown</div>
+    <div class="chart-wrap"><canvas id="chCategory"></canvas></div>
+  </div>
+
+  <div class="card c-span-12">
+    <h3>Top Products — Detail</h3>
+    <div class="card-sub">Revenue, units sold, orders and average price per top product</div>
+    <table id="topProductsTable">
+      <thead>
+        <tr><th>#</th><th>Product</th><th>Category</th><th>Units Sold</th><th>Orders</th><th>Avg Price</th><th>Revenue</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<footer>D2C Analytics Dashboard · Generated automatically from the uploaded sales workbook · Built with Chart.js</footer>
+<script>
+const RAW_ORDERS = [{"order_id": 1001, "order_date": "2024-11-23", "customer_id": "C103", "city": "Chennai", "state": "TN", "category": "Haircare", "product_name": "Hair Mask", "quantity": 2, "channel": "Website", "MRP": 1047}, {"order_id": 1002, "order_date": "2024-10-29", "customer_id": "C113", "city": "Mumbai", "state": "MH", "category": "Skincare", "product_name": "Sunscreen SPF50", "quantity": 2, "channel": "Amazon", "MRP": 1442}, {"order_id": 1003, "order_date": "2024-04-11", "customer_id": "C122", "city": "Jaipur", "state": "RJ", "category": "Makeup", "product_name": "Lipstick", "quantity": 4, "channel": "App", "MRP": 955}, {"order_id": 1004, "order_date": "2024-12-23", "customer_id": "C113", "city": "Chennai", "state": "TN", "category": "Haircare", "product_name": "Hair Mask", "quantity": 3, "channel": "Website", "MRP": 1047}, {"order_id": 1005, "order_date": "2024-07-02", "customer_id": "C127", "city": "Lucknow", "state": "UP", "category": "Wellness", "product_name": "Collagen Supplement", "quantity": 4, "channel": "Website", "MRP": 1453}, {"order_id": 1006, "order_date": "2024-10-09", "customer_id": "C109", "city": "Lucknow", "state": "UP", "category": "Wellness", "product_name": "Ashwagandha", "quantity": 2, "channel": "App", "MRP": 1410}, {"order_id": 1007, "order_date": "2024-05-28", "customer_id": "C102", "city": "Hyderabad", "state": "TS", "category": "Skincare", "product_name": "Face Wash", "quantity": 3, "channel": "App", "MRP": 1215}, {"order_id": 1008, "order_date": "2024-07-08", "customer_id": "C111", "city": "Chennai", "state": "TN", "category": "Skincare", "product_name": "Night Cream", "quantity": 2, "channel": "App", "MRP": 1488}, {"order_id": 1009, "order_date": "2024-08-24", "customer_id": "C112", "city": "Jaipur", "state": "RJ", "category": "Haircare", "product_name": "Conditioner", "quantity": 1, "channel": "Instagram", "MRP": 1395}, {"order_id": 1010, "order_date": "2024-07-24", "customer_id": "C108", "city": "Hyderabad", "state": "TS", "category": "Wellness", "product_name": "Vitamin D3", "quantity": 4, "channel": "App", "MRP": 1449}, {"order_id": 1011, "order_date": "2024-05-15", "customer_id": "C104", "city": "Jaipur", "state": "RJ", "category": "Wellness", "product_name": "Ashwagandha", "quantity": 4, "channel": "Instagram", "MRP": 1410}, {"order_id": 1012, "order_date": "2024-04-22", "customer_id": "C104", "city": "Kolkata", "state": "WB", "category": "Skincare", "product_name": "Vitamin C Serum", "quantity": 1, "channel": "WhatsApp", "MRP": 1813}, {"order_id": 1013, "order_date": "2024-11-01", "customer_id": "C102", "city": "Ahmedabad", "state": "GJ", "category": "Makeup", "product_name": "Eyeliner", "quantity": 3, "channel": "Website", "MRP": 1426}, {"order_id": 1014, "order_date": "2024-12-15", "customer_id": "C128", "city": "Chennai", "state": "TN", "category": "Wellness", "product_name": "Collagen Supplement", "quantity": 3, "channel": "Website", "MRP": 1453}, {"order_id": 1015, "order_date": "2024-05-14", "customer_id": "C116", "city": "Bengaluru", "state": "KA", "category": "Skincare", "product_name": "Moisturizer", "quantity": 5, "channel": "Instagram", "MRP": 1358}, {"order_id": 1016, "order_date": "2024-03-23", "customer_id": "C117", "city": "Jaipur", "state": "RJ", "category": "Skincare", "product_name": "Night Cream", "quantity": 3, "channel": "Instagram", "MRP": 1488}, {"order_id": 1017, "order_date": "2024-06-06", "customer_id": "C107", "city": "Hyderabad", "state": "TS", "category": "Skincare", "product_name": "Vitamin C Serum", "quantity": 4, "channel": "App", "MRP": 1813}, {"order_id": 1018, "order_date": "2024-03-06", "customer_id": "C121", "city": "Jaipur", "state": "RJ", "category": "Haircare", "product_name": "Conditioner", "quantity": 5, "channel": "App", "MRP": 1395}, {"order_id": 1019, "order_date": "2024-10-03", "customer_id": "C124", "city": "Hyderabad", "state": "TS", "category": "Wellness", "product_name": "Probiotic Blend", "quantity": 3, "channel": "WhatsApp", "MRP": 1441}, {"order_id": 1020, "order_date": "2024-03-02", "customer_id": "C107", "city": "Delhi", "state": "DL", "category": "Wellness", "product_name": "Collagen Supplement", "quantity": 5, "channel": "App", "MRP": 1453}, {"order_id": 1021, "order_date": "2024-01-04", "customer_id": "C102", "city": "Mumbai", "state": "MH", "category": "Haircare", "product_name": "Shampoo 250ml", "quantity": 1, "channel": "Amazon", "MRP": 2169}, {"order_id": 1022, "order_date": "2024-05-01", "customer_id": "C108", "city": "Kolkata", "state": "WB", "category": "Haircare", "product_name": "Hair Oil", "quantity": 2, "channel": "Amazon", "MRP": 777}, {"order_id": 1023, "order_date": "2024-08-30", "customer_id": "C107", "city": "Kolkata", "state": "WB", "category": "Makeup", "product_name": "Lipstick", "quantity": 1, "channel": "Instagram", "MRP": 955}, {"order_id": 1024, "order_date": "2024-08-04", "customer_id": "C113", "city": "Mumbai", "state": "MH", "category": "Skincare", "product_name": "Vitamin C Serum", "quantity": 4, "channel": "App", "MRP": 1813}, {"order_id": 1025, "order_date": "2024-04-08", "customer_id": "C106", "city": "Kolkata", "state": "WB", "category": "Haircare", "product_name": "Scalp Serum", "quantity": 2, "channel": "Website", "MRP": 529}, {"order_id": 1026, "order_date": "2024-08-14", "customer_id": "C125", "city": "Jaipur", "state": "RJ", "category": "Skincare", "product_name": "Vitamin C Serum", "quantity": 5, "channel": "App", "MRP": 1813}, {"order_id": 1027, "order_date": "2024-03-26", "customer_id": "C113", "city": "Kolkata", "state": "WB", "category": "Haircare", "product_name": "Scalp Serum", "quantity": 1, "channel": "WhatsApp", "MRP": 529}, {"order_id": 1028, "order_date": "2024-05-15", "customer_id": "C129", "city": "Kolkata", "state": "WB", "category": "Wellness", "product_name": "Probiotic Blend", "quantity": 5, "channel": "App", "MRP": 1441}, {"order_id": 1029, "order_date": "2024-04-07", "customer_id": "C109", "city": "Mumbai", "state": "MH", "category": "Skincare", "product_name": "Moisturizer", "quantity": 1, "channel": "Amazon", "MRP": 1358}, {"order_id": 1030, "order_date": "2024-09-28", "customer_id": "C105", "city": "Jaipur", "state": "RJ", "category": "Skincare", "product_name": "Sunscreen SPF50", "quantity": 1, "channel": "WhatsApp", "MRP": 1442}, {"order_id": 1031, "order_date": "2024-03-02", "customer_id": "C130", "city": "Lucknow", "state": "UP", "category": "Haircare", "product_name": "Hair Oil", "quantity": 5, "channel": "WhatsApp", "MRP": 777}, {"order_id": 1032, "order_date": "2024-12-02", "customer_id": "C118", "city": "Jaipur", "state": "RJ", "category": "Wellness", "product_name": "Omega 3", "quantity": 2, "channel": "App", "MRP": 1161}, {"order_id": 1033, "order_date": "2024-05-15", "customer_id": "C112", "city": "Chennai", "state": "TN", "category": "Makeup", "product_name": "Foundation", "quantity": 1, "channel": "Amazon", "MRP": 171}, {"order_id": 1034, "order_date": "2024-02-21", "customer_id": "C102", "city": "Hyderabad", "state": "TS", "category": "Wellness", "product_name": "Vitamin D3", "quantity": 3, "channel": "Instagram", "MRP": 1449}, {"order_id": 1035, "order_date": "2024-05-25", "customer_id": "C105", "city": "Jaipur", "state": "RJ", "category": "Wellness", "product_name": "Ashwagandha", "quantity": 5, "channel": "Instagram", "MRP": 1410}, {"order_id": 1036, "order_date": "2024-12-05", "customer_id": "C103", "city": "Bengaluru", "state": "KA", "category": "Wellness", "product_name": "Collagen Supplement", "quantity": 1, "channel": "Instagram", "MRP": 1453}, {"order_id": 1037, "order_date": "2024-05-24", "customer_id": "C119", "city": "Pune", "state": "MH", "category": "Haircare", "product_name": "Conditioner", "quantity": 5, "channel": "Website", "MRP": 1395}, {"order_id": 1038, "order_date": "2024-11-20", "customer_id": "C113", "city": "Chennai", "state": "TN", "category": "Skincare", "product_name": "Vitamin C Serum", "quantity": 3, "channel": "App", "MRP": 1813}, {"order_id": 1039, "order_date": "2024-08-14", "customer_id": "C117", "city": "Ahmedabad", "state": "GJ", "category": "Skincare", "product_name": "Vitamin C Serum", "quantity": 1, "channel": "Amazon", "MRP": 1813}, {"order_id": 1040, "order_date": "2024-01-19", "customer_id": "C126", "city": "Lucknow", "state": "UP", "category": "Haircare", "product_name": "Scalp Serum", "quantity": 2, "channel": "Website", "MRP": 529}, {"order_id": 1041, "order_date": "2024-07-02", "customer_id": "C106", "city": "Hyderabad", "state": "TS", "category": "Skincare", "product_name": "Moisturizer", "quantity": 5, "channel": "Amazon", "MRP": 1358}, {"order_id": 1042, "order_date": "2024-03-20", "customer_id": "C129", "city": "Hyderabad", "state": "TS", "category": "Haircare", "product_name": "Hair Mask", "quantity": 4, "channel": "WhatsApp", "MRP": 1047}, {"order_id": 1043, "order_date": "2024-12-08", "customer_id": "C127", "city": "Hyderabad", "state": "TS", "category": "Wellness", "product_name": "Vitamin D3", "quantity": 1, "channel": "WhatsApp", "MRP": 1449}, {"order_id": 1044, "order_date": "2024-04-23", "customer_id": "C106", "city": "Kolkata", "state": "WB", "category": "Wellness", "product_name": "Omega 3", "quantity": 2, "channel": "WhatsApp", "MRP": 1161}, {"order_id": 1045, "order_date": "2024-06-17", "customer_id": "C108", "city": "Delhi", "state": "DL", "category": "Wellness", "product_name": "Omega 3", "quantity": 5, "channel": "Instagram", "MRP": 1161}, {"order_id": 1046, "order_date": "2024-01-15", "customer_id": "C103", "city": "Chennai", "state": "TN", "category": "Haircare", "product_name": "Hair Oil", "quantity": 3, "channel": "WhatsApp", "MRP": 777}, {"order_id": 1047, "order_date": "2024-06-25", "customer_id": "C123", "city": "Pune", "state": "MH", "category": "Makeup", "product_name": "Eyeliner", "quantity": 5, "channel": "App", "MRP": 1426}, {"order_id": 1048, "order_date": "2024-05-10", "customer_id": "C101", "city": "Ahmedabad", "state": "GJ", "category": "Skincare", "product_name": "Night Cream", "quantity": 5, "channel": "Instagram", "MRP": 1488}, {"order_id": 1049, "order_date": "2024-08-08", "customer_id": "C102", "city": "Pune", "state": "MH", "category": "Wellness", "product_name": "Collagen Supplement", "quantity": 3, "channel": "Instagram", "MRP": 1453}, {"order_id": 1050, "order_date": "2024-07-25", "customer_id": "C122", "city": "Jaipur", "state": "RJ", "category": "Haircare", "product_name": "Hair Mask", "quantity": 4, "channel": "App", "MRP": 1047}, {"order_id": "\ud83d\udca1 PK: order_id  |  FK\u2192customers: customer_id  |  FK\u2192product_pricing: (product_name, channel)  |  FK\u2192product_catalog: (category, product_name)  |  unit_price = MRP (list price)", "order_date": null, "customer_id": null, "city": null, "state": null, "category": null, "product_name": null, "quantity": null, "channel": null, "MRP": null}];
+const RAW_CATALOG = [{"category": "Haircare", "product_name": "Hair Mask", "brand": "Pilgrim", "mrp": 1047, "cost_price": 366.45, "shelf_life_days": 548, "is_hero_product": "Y"}, {"category": "Skincare", "product_name": "Sunscreen SPF50", "brand": "Minimalist", "mrp": 1442, "cost_price": 547.96, "shelf_life_days": 730, "is_hero_product": "Y"}, {"category": "Makeup", "product_name": "Lipstick", "brand": "Faces Canada", "mrp": 955, "cost_price": 382, "shelf_life_days": 365, "is_hero_product": "N"}, {"category": "Wellness", "product_name": "Collagen Supplement", "brand": "OZiva", "mrp": 1453, "cost_price": 464.96, "shelf_life_days": 365, "is_hero_product": "Y"}, {"category": "Wellness", "product_name": "Ashwagandha", "brand": "Fast&Up", "mrp": 1410, "cost_price": 451.2, "shelf_life_days": 365, "is_hero_product": "N"}, {"category": "Skincare", "product_name": "Face Wash", "brand": "Dot & Key", "mrp": 1215, "cost_price": 461.7, "shelf_life_days": 730, "is_hero_product": "N"}, {"category": "Skincare", "product_name": "Night Cream", "brand": "Dot & Key", "mrp": 1488, "cost_price": 565.44, "shelf_life_days": 730, "is_hero_product": "N"}, {"category": "Haircare", "product_name": "Conditioner", "brand": "Tresemme", "mrp": 1395, "cost_price": 488.25, "shelf_life_days": 548, "is_hero_product": "N"}, {"category": "Wellness", "product_name": "Vitamin D3", "brand": "The Whole Truth", "mrp": 1449, "cost_price": 463.68, "shelf_life_days": 365, "is_hero_product": "N"}, {"category": "Skincare", "product_name": "Vitamin C Serum", "brand": "Plum", "mrp": 1813, "cost_price": 688.94, "shelf_life_days": 730, "is_hero_product": "Y"}, {"category": "Makeup", "product_name": "Eyeliner", "brand": "Faces Canada", "mrp": 1426, "cost_price": 570.4, "shelf_life_days": 365, "is_hero_product": "N"}, {"category": "Skincare", "product_name": "Moisturizer", "brand": "Dot & Key", "mrp": 1358, "cost_price": 516.04, "shelf_life_days": 730, "is_hero_product": "N"}, {"category": "Wellness", "product_name": "Probiotic Blend", "brand": "Wellbeing Nutrition", "mrp": 1441, "cost_price": 461.12, "shelf_life_days": 365, "is_hero_product": "N"}, {"category": "Haircare", "product_name": "Shampoo 250ml", "brand": "Brillare", "mrp": 2169, "cost_price": 759.15, "shelf_life_days": 548, "is_hero_product": "N"}, {"category": "Haircare", "product_name": "Hair Oil", "brand": "Arata", "mrp": 777, "cost_price": 271.95, "shelf_life_days": 548, "is_hero_product": "N"}, {"category": "Haircare", "product_name": "Scalp Serum", "brand": "Brillare", "mrp": 529, "cost_price": 185.15, "shelf_life_days": 548, "is_hero_product": "N"}, {"category": "Wellness", "product_name": "Omega 3", "brand": "Wellbeing Nutrition", "mrp": 1161, "cost_price": 371.52, "shelf_life_days": 365, "is_hero_product": "Y"}, {"category": "Makeup", "product_name": "Foundation", "brand": "Colorbar", "mrp": 171, "cost_price": 68.4, "shelf_life_days": 365, "is_hero_product": "N"}, {"category": "\ud83d\udca1 PK: (category, product_name)  |  mrp = list price (matches unit_price in orders)  |  is_hero_product=Y highlighted", "product_name": null, "brand": null, "mrp": null, "cost_price": null, "shelf_life_days": null, "is_hero_product": null}];
+const RAW_CUSTOMERS = [{"customer_id": "C101", "customer_name": "Priya Sharma", "customer_segment": "Gold", "acquisition_channel": "Instagram", "registration_date": "2022-04-25", "is_loyalty_member": "N"}, {"customer_id": "C102", "customer_name": "Rahul Mehta", "customer_segment": "Gold", "acquisition_channel": "Google Ads", "registration_date": "2022-10-09", "is_loyalty_member": "Y"}, {"customer_id": "C103", "customer_name": "Ananya Kapoor", "customer_segment": "Gold", "acquisition_channel": "Facebook", "registration_date": "2022-05-23", "is_loyalty_member": "Y"}, {"customer_id": "C104", "customer_name": "Deepak Verma", "customer_segment": "Gold", "acquisition_channel": "Instagram", "registration_date": "2023-07-13", "is_loyalty_member": "N"}, {"customer_id": "C105", "customer_name": "Meera Patel", "customer_segment": "Gold", "acquisition_channel": "Instagram", "registration_date": "2023-03-09", "is_loyalty_member": "Y"}, {"customer_id": "C106", "customer_name": "Sanjay Rao", "customer_segment": "Gold", "acquisition_channel": "Google Ads", "registration_date": "2022-04-06", "is_loyalty_member": "Y"}, {"customer_id": "C107", "customer_name": "Kavya Nair", "customer_segment": "Gold", "acquisition_channel": "Organic", "registration_date": "2023-06-02", "is_loyalty_member": "Y"}, {"customer_id": "C108", "customer_name": "Arjun Tiwari", "customer_segment": "Gold", "acquisition_channel": "Google Ads", "registration_date": "2023-07-29", "is_loyalty_member": "N"}, {"customer_id": "C109", "customer_name": "Divya Lal", "customer_segment": "Silver", "acquisition_channel": "Referral", "registration_date": "2023-07-13", "is_loyalty_member": "Y"}, {"customer_id": "C111", "customer_name": "Nikhil Bose", "customer_segment": "Silver", "acquisition_channel": "Organic", "registration_date": "2023-04-05", "is_loyalty_member": "Y"}, {"customer_id": "C112", "customer_name": "Shreya Joshi", "customer_segment": "Silver", "acquisition_channel": "Google Ads", "registration_date": "2022-01-07", "is_loyalty_member": "N"}, {"customer_id": "C113", "customer_name": "Rohit Chopra", "customer_segment": "Silver", "acquisition_channel": "Influencer", "registration_date": "2023-03-09", "is_loyalty_member": "Y"}, {"customer_id": "C116", "customer_name": "Pooja Desai", "customer_segment": "Silver", "acquisition_channel": "Google Ads", "registration_date": "2022-06-09", "is_loyalty_member": "Y"}, {"customer_id": "C117", "customer_name": "Amit Gupta", "customer_segment": "Silver", "acquisition_channel": "Instagram", "registration_date": "2022-04-15", "is_loyalty_member": "Y"}, {"customer_id": "C118", "customer_name": "Neha Hegde", "customer_segment": "Silver", "acquisition_channel": "Influencer", "registration_date": "2022-04-10", "is_loyalty_member": "Y"}, {"customer_id": "C119", "customer_name": "Vikram Singh", "customer_segment": "Silver", "acquisition_channel": "Instagram", "registration_date": "2022-09-28", "is_loyalty_member": "N"}, {"customer_id": "C121", "customer_name": "Ritu Agarwal", "customer_segment": "Silver", "acquisition_channel": "Organic", "registration_date": "2023-04-16", "is_loyalty_member": "Y"}, {"customer_id": "C122", "customer_name": "Manish Soni", "customer_segment": "Silver", "acquisition_channel": "Instagram", "registration_date": "2023-01-23", "is_loyalty_member": "N"}, {"customer_id": "C123", "customer_name": "Lakshmi Iyer", "customer_segment": "Bronze", "acquisition_channel": "Facebook", "registration_date": "2022-10-28", "is_loyalty_member": "N"}, {"customer_id": "C124", "customer_name": "Farhan Sheikh", "customer_segment": "Bronze", "acquisition_channel": "Organic", "registration_date": "2023-01-06", "is_loyalty_member": "Y"}, {"customer_id": "C125", "customer_name": "Zara Mirza", "customer_segment": "Bronze", "acquisition_channel": "Instagram", "registration_date": "2022-03-13", "is_loyalty_member": "N"}, {"customer_id": "C126", "customer_name": "Tarun Kumar", "customer_segment": "Bronze", "acquisition_channel": "Influencer", "registration_date": "2022-08-22", "is_loyalty_member": "Y"}, {"customer_id": "C127", "customer_name": "Sunita Reddy", "customer_segment": "Bronze", "acquisition_channel": "Instagram", "registration_date": "2022-08-27", "is_loyalty_member": "Y"}, {"customer_id": "C128", "customer_name": "Harish Pillai", "customer_segment": "Bronze", "acquisition_channel": "Referral", "registration_date": "2022-10-12", "is_loyalty_member": "N"}, {"customer_id": "C129", "customer_name": "Nandini Das", "customer_segment": "Bronze", "acquisition_channel": "Google Ads", "registration_date": "2023-01-09", "is_loyalty_member": "Y"}, {"customer_id": "C130", "customer_name": "Chirag Shah", "customer_segment": "Bronze", "acquisition_channel": "Google Ads", "registration_date": "2022-12-30", "is_loyalty_member": "N"}, {"customer_id": "\ud83d\udca1 PK: customer_id  |  Segments: Gold (rows 1\u20138) / Silver (9\u201318) / Bronze (19\u201326)  |  Single-key JOIN to orders", "customer_name": null, "customer_segment": null, "acquisition_channel": null, "registration_date": null, "is_loyalty_member": null}];
+</script>
+<script>
+// ---------- Helpers: robust column inference ----------
+function pickKey(obj, candidates){
+  const keys = Object.keys(obj);
+  for(const c of candidates){
+    const hit = keys.find(k => k.toLowerCase().replace(/[^a-z0-9]/g,'') === c.toLowerCase().replace(/[^a-z0-9]/g,''));
+    if(hit) return hit;
+  }
+  // fallback: partial match
+  for(const c of candidates){
+    const hit = keys.find(k => k.toLowerCase().includes(c.toLowerCase()));
+    if(hit) return hit;
+  }
+  return null;
+}
+
+const ordersRaw = RAW_ORDERS || [];
+const sample = ordersRaw[0] || {};
+
+const COL = {
+  orderId: pickKey(sample, ['order_id','orderid','id']),
+  date: pickKey(sample, ['order_date','date','orderdate']),
+  customer: pickKey(sample, ['customer_id','customerid']),
+  category: pickKey(sample, ['category','product_category']),
+  product: pickKey(sample, ['product_name','product','item']),
+  qty: pickKey(sample, ['quantity','qty','units']),
+  channel: pickKey(sample, ['channel','sales_channel']),
+  price: pickKey(sample, ['mrp','price','unit_price','selling_price'])
+};
+
+// ---------- Normalize orders ----------
+const orders = ordersRaw.map(o => {
+  const qty = Number(o[COL.qty]) || 0;
+  const price = Number(o[COL.price]) || 0;
+  return {
+    orderId: o[COL.orderId],
+    date: o[COL.date] ? new Date(o[COL.date]) : null,
+    customer: o[COL.customer],
+    category: o[COL.category] || 'Uncategorized',
+    product: o[COL.product] || 'Unknown',
+    qty: qty,
+    channel: o[COL.channel] || 'Other',
+    price: price,
+    revenue: qty * price
+  };
+});
+
+// ---------- KPIs ----------
+const totalRevenue = orders.reduce((s,o)=>s+o.revenue,0);
+const totalOrders = new Set(orders.map(o=>o.orderId)).size || orders.length;
+const totalUnits = orders.reduce((s,o)=>s+o.qty,0);
+const uniqueCustomers = new Set(orders.map(o=>o.customer)).size;
+const aov = totalRevenue / (totalOrders || 1);
+
+const fmtCurrency = v => '₹' + Math.round(v).toLocaleString('en-IN');
+const fmtNum = v => Math.round(v).toLocaleString('en-IN');
+
+const validDates = orders.map(o=>o.date).filter(d=>d && !isNaN(d));
+if(validDates.length){
+  const minD = new Date(Math.min(...validDates));
+  const maxD = new Date(Math.max(...validDates));
+  const opts = {month:'short', day:'numeric', year:'numeric'};
+  document.getElementById('dateRangePill').textContent =
+    `📅 ${minD.toLocaleDateString('en-US',opts)} → ${maxD.toLocaleDateString('en-US',opts)}`;
+} else {
+  document.getElementById('dateRangePill').textContent = '📅 Full period';
+}
+
+const kpis = [
+  {label:'Total Revenue', value: fmtCurrency(totalRevenue), sub:`${fmtNum(totalUnits)} units sold`, color:'var(--accent)'},
+  {label:'Total Orders', value: fmtNum(totalOrders), sub:`Avg ${ (totalUnits/(totalOrders||1)).toFixed(1) } units/order`, color:'var(--accent2)'},
+  {label:'Customers', value: fmtNum(uniqueCustomers), sub:`${(totalOrders/(uniqueCustomers||1)).toFixed(1)} orders/customer`, color:'var(--purple)'},
+  {label:'Avg Order Value', value: fmtCurrency(aov), sub:'Revenue ÷ Orders', color:'var(--amber)'},
+  {label:'Units Sold', value: fmtNum(totalUnits), sub:`Across ${new Set(orders.map(o=>o.product)).size} products`, color:'var(--green)'}
+];
+
+const kpiGrid = document.getElementById('kpiGrid');
+kpiGrid.innerHTML = kpis.map(k => `
+  <div class="kpi-card" style="--accent-color:${k.color}">
+    <div class="kpi-label">${k.label}</div>
+    <div class="kpi-value">${k.value}</div>
+    <div class="kpi-sub">${k.sub}</div>
+  </div>
+`).join('');
+
+// ---------- Aggregations ----------
+function groupSum(arr, keyFn, valFn){
+  const m = new Map();
+  for(const item of arr){
+    const k = keyFn(item);
+    m.set(k, (m.get(k)||0) + valFn(item));
+  }
+  return m;
+}
+
+const revByChannel = groupSum(orders, o=>o.channel, o=>o.revenue);
+const ordersByChannel = groupSum(orders, o=>o.channel, ()=>1);
+const revByCategory = groupSum(orders, o=>o.category, o=>o.revenue);
+
+const productAgg = new Map();
+for(const o of orders){
+  const key = o.product;
+  if(!productAgg.has(key)) productAgg.set(key, {product:key, category:o.category, revenue:0, units:0, orders:0});
+  const p = productAgg.get(key);
+  p.revenue += o.revenue;
+  p.units += o.qty;
+  p.orders += 1;
+}
+const topProducts = Array.from(productAgg.values()).sort((a,b)=>b.revenue-a.revenue).slice(0,10);
+
+// Monthly trend
+const monthAgg = new Map();
+for(const o of orders){
+  if(!o.date || isNaN(o.date)) continue;
+  const key = `${o.date.getFullYear()}-${String(o.date.getMonth()+1).padStart(2,'0')}`;
+  if(!monthAgg.has(key)) monthAgg.set(key, {revenue:0, orders:0});
+  const m = monthAgg.get(key);
+  m.revenue += o.revenue;
+  m.orders += 1;
+}
+const monthKeys = Array.from(monthAgg.keys()).sort();
+const monthLabels = monthKeys.map(k=>{
+  const [y,m] = k.split('-');
+  return new Date(y, m-1, 1).toLocaleDateString('en-US',{month:'short', year:'2-digit'});
+});
+
+// ---------- Chart theme ----------
+Chart.defaults.color = '#8b95a7';
+Chart.defaults.font.family = "'Segoe UI', Roboto, sans-serif";
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+
+const PALETTE = ['#6366f1','#22d3ee','#34d399','#fbbf24','#f472b6','#a78bfa','#fb7185','#60a5fa','#facc15','#4ade80'];
+
+function gridOpt(){ return {color:'rgba(255,255,255,0.06)'}; }
+
+// Revenue by Channel (bar)
+new Chart(document.getElementById('chRevChannel'), {
+  type:'bar',
+  data:{
+    labels: Array.from(revByChannel.keys()),
+    datasets:[{
+      label:'Revenue',
+      data: Array.from(revByChannel.values()),
+      backgroundColor: PALETTE,
+      borderRadius:6,
+      maxBarThickness:46
+    }]
+  },
+  options:{
+    plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>fmtCurrency(c.raw)}}},
+    scales:{ x:{grid:{display:false}}, y:{grid:gridOpt(), ticks:{callback:v=>'₹'+(v/1000).toFixed(0)+'k'}} }
+  }
+});
+
+// Orders by Channel (bar)
+new Chart(document.getElementById('chOrdersChannel'), {
+  type:'bar',
+  data:{
+    labels: Array.from(ordersByChannel.keys()),
+    datasets:[{
+      label:'Orders',
+      data: Array.from(ordersByChannel.values()),
+      backgroundColor: PALETTE.slice().reverse(),
+      borderRadius:6,
+      maxBarThickness:46
+    }]
+  },
+  options:{
+    plugins:{legend:{display:false}},
+    scales:{ x:{grid:{display:false}}, y:{grid:gridOpt(), ticks:{precision:0}} }
+  }
+});
+
+// Monthly trend (line + bar combo)
+new Chart(document.getElementById('chTrend'), {
+  data:{
+    labels: monthLabels,
+    datasets:[
+      {
+        type:'bar',
+        label:'Orders',
+        data: monthKeys.map(k=>monthAgg.get(k).orders),
+        backgroundColor:'rgba(99,102,241,0.35)',
+        borderRadius:5,
+        yAxisID:'y1',
+        order:2
+      },
+      {
+        type:'line',
+        label:'Revenue',
+        data: monthKeys.map(k=>monthAgg.get(k).revenue),
+        borderColor:'#22d3ee',
+        backgroundColor:'rgba(34,211,238,0.15)',
+        tension:0.35,
+        fill:true,
+        pointRadius:4,
+        pointBackgroundColor:'#22d3ee',
+        yAxisID:'y',
+        order:1
+      }
+    ]
+  },
+  options:{
+    interaction:{mode:'index', intersect:false},
+    plugins:{legend:{position:'top', labels:{boxWidth:10, usePointStyle:true}}},
+    scales:{
+      x:{grid:{display:false}},
+      y:{ position:'left', grid:gridOpt(), ticks:{callback:v=>'₹'+(v/1000).toFixed(0)+'k'} },
+      y1:{ position:'right', grid:{display:false}, ticks:{precision:0} }
+    }
+  }
+});
+
+// Channel contribution (doughnut)
+new Chart(document.getElementById('chChannelShare'), {
+  type:'doughnut',
+  data:{
+    labels: Array.from(revByChannel.keys()),
+    datasets:[{
+      data: Array.from(revByChannel.values()),
+      backgroundColor: PALETTE,
+      borderColor:'#161c26',
+      borderWidth:3
+    }]
+  },
+  options:{
+    cutout:'62%',
+    plugins:{
+      legend:{position:'bottom', labels:{boxWidth:10, padding:12, usePointStyle:true, font:{size:11}}},
+      tooltip:{callbacks:{label:c=>{
+        const total = c.dataset.data.reduce((a,b)=>a+b,0);
+        const pct = ((c.raw/total)*100).toFixed(1);
+        return `${c.label}: ${fmtCurrency(c.raw)} (${pct}%)`;
+      }}}
+    }
+  }
+});
+
+// Top 10 products (horizontal bar)
+new Chart(document.getElementById('chTopProducts'), {
+  type:'bar',
+  data:{
+    labels: topProducts.map(p=>p.product),
+    datasets:[{
+      label:'Revenue',
+      data: topProducts.map(p=>p.revenue),
+      backgroundColor:'#a78bfa',
+      borderRadius:5
+    }]
+  },
+  options:{
+    indexAxis:'y',
+    plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>fmtCurrency(c.raw)}}},
+    scales:{ x:{grid:gridOpt(), ticks:{callback:v=>'₹'+(v/1000).toFixed(0)+'k'}}, y:{grid:{display:false}} }
+  }
+});
+
+// Revenue by category (pie)
+new Chart(document.getElementById('chCategory'), {
+  type:'pie',
+  data:{
+    labels: Array.from(revByCategory.keys()),
+    datasets:[{
+      data: Array.from(revByCategory.values()),
+      backgroundColor: PALETTE,
+      borderColor:'#161c26',
+      borderWidth:3
+    }]
+  },
+  options:{
+    plugins:{
+      legend:{position:'bottom', labels:{boxWidth:10, padding:10, usePointStyle:true, font:{size:11}}},
+      tooltip:{callbacks:{label:c=>{
+        const total = c.dataset.data.reduce((a,b)=>a+b,0);
+        const pct = ((c.raw/total)*100).toFixed(1);
+        return `${c.label}: ${fmtCurrency(c.raw)} (${pct}%)`;
+      }}}
+    }
+  }
+});
+
+// Top products table
+const tbody = document.querySelector('#topProductsTable tbody');
+tbody.innerHTML = topProducts.map((p,i)=>`
+  <tr>
+    <td><span class="rank">${i+1}</span></td>
+    <td>${p.product}</td>
+    <td>${p.category}</td>
+    <td>${fmtNum(p.units)}</td>
+    <td>${fmtNum(p.orders)}</td>
+    <td>${fmtCurrency(p.revenue/p.units)}</td>
+    <td><span class="badge">${fmtCurrency(p.revenue)}</span></td>
+  </tr>
+`).join('');
+</script>
+</body>
+</html>
