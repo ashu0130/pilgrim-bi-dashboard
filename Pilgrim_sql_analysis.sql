@@ -12,12 +12,7 @@ JOIN customers c ON o.customer_id = c.customer_id
 GROUP BY c.customer_segment
 ORDER BY total_orders DESC;
 
-Result:
-    customer_segment    total_orders     avg_MRP
-    Gold                22               1327.64
-    Silver              18               1282.11
-    Bronze              10               1282.90
-    
+
 -- =====================================================
 -- Question 2
 -- =====================================================
@@ -31,7 +26,7 @@ LEFT JOIN product_pricing p
 GROUP BY o.product_name
 ORDER BY total_revenue DESC;
 
-Top result: Vitamin C Serum (₹30,730.35), Collagen Supplement (₹20,429.18), Conditioner (₹14,298.75) etc...
+
 -- =====================================================
 -- Question 3
 -- =====================================================
@@ -45,4 +40,3 @@ JOIN product_pricing p
 GROUP BY o.channel
 ORDER BY avg_discount_pct DESC;
 
-Answer: Amazon has the highest average discount at 17.43%, followed by Instagram (11.36%), Website (9.25%), WhatsApp (7.11%), App (5.53%).
